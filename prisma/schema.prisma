@@ -1,0 +1,441 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum BookingStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  AWAITING_DEPOSIT
+  DEPOSIT_PAID
+  FULLY_PAID
+  COMPLETED
+  CANCELLED
+  RESCHEDULE_REQUESTED
+  DECLINED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY_WAVE
+  ONLINE_CARD
+  OTHER
+}
+
+enum PaymentVerificationStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+}
+
+enum InquiryStatus {
+  OPEN
+  IN_PROGRESS
+  REPLIED
+  CONVERTED_TO_BOOKING
+  CLOSED
+}
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+  SIMULATED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         Role      @default(ADMIN)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  fullName  String
+  email     String    @unique
+  phone     String
+  notes     String?
+  bookings  Booking[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([email])
+  @@index([phone])
+  @@map("customers")
+}
+
+model Service {
+  id              String           @id @default(cuid())
+  slug            String           @unique
+  name            String
+  description     String
+  durationMinutes Int              @default(60)
+  bufferMinutes   Int              @default(30)
+  startingPrice   Decimal          @default(0) @db.Decimal(12, 2)
+  depositAmount   Decimal          @default(0) @db.Decimal(12, 2)
+  currency        String           @default("GMD")
+  isCustomQuote   Boolean          @default(false)
+  isActive        Boolean          @default(true)
+  sortOrder       Int              @default(0)
+  coverImage      String?
+  deliverables    String?
+  packages        Package[]
+  addOns          PackageAddOn[]
+  bookings        Booking[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@map("services")
+}
+
+model Package {
+  id                String         @id @default(cuid())
+  serviceId         String
+  service           Service        @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  slug              String         @unique
+  name              String
+  description       String
+  price             Decimal        @db.Decimal(12, 2)
+  depositAmount     Decimal        @default(0) @db.Decimal(12, 2)
+  currency          String         @default("GMD")
+  durationMinutes   Int            @default(60)
+  editedPhotosCount Int            @default(15)
+  outfitChanges     Int            @default(1)
+  isIndoor          Boolean        @default(true)
+  isOutdoor         Boolean        @default(true)
+  locationType      String         @default("Studio or On-Location")
+  deliverables      String
+  isFeatured        Boolean        @default(false)
+  isActive          Boolean        @default(true)
+  sortOrder         Int            @default(0)
+  bookings          Booking[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([serviceId])
+  @@map("packages")
+}
+
+model PackageAddOn {
+  id          String   @id @default(cuid())
+  serviceId   String?
+  service     Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(12, 2)
+  currency    String   @default("GMD")
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("package_add_ons")
+}
+
+model PortfolioCategory {
+  id          String             @id @default(cuid())
+  slug        String             @unique
+  name        String
+  description String?
+  sortOrder   Int                @default(0)
+  isActive    Boolean            @default(true)
+  projects    PortfolioProject[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@map("portfolio_categories")
+}
+
+model PortfolioProject {
+  id          String             @id @default(cuid())
+  slug        String             @unique
+  title       String
+  categoryId  String
+  category    PortfolioCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  clientName  String?
+  shootDate   DateTime?
+  location    String?
+  description String?
+  coverImage  String
+  isFeatured  Boolean            @default(false)
+  isPublished Boolean            @default(true)
+  sortOrder   Int                @default(0)
+  images      PortfolioImage[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([categoryId])
+  @@index([slug])
+  @@map("portfolio_projects")
+}
+
+model PortfolioImage {
+  id          String           @id @default(cuid())
+  projectId   String
+  project     PortfolioProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  url         String
+  publicId    String?
+  caption     String?
+  altText     String
+  width       Int              @default(1920)
+  height      Int              @default(1080)
+  sortOrder   Int              @default(0)
+  isCover     Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@index([projectId])
+  @@map("portfolio_images")
+}
+
+model Booking {
+  id                 String                 @id @default(cuid())
+  bookingReference   String                 @unique
+  customerId         String
+  customer           Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  serviceId          String
+  service            Service                @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  packageId          String?
+  package            Package?               @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  sessionDate        DateTime
+  startTime          String                 // e.g. "10:00"
+  endTime            String                 // e.g. "12:00"
+  sessionType        String                 @default("Standard")
+  locationVenue      String
+  participantsCount  Int                    @default(1)
+  eventDate          DateTime?
+  notes              String?
+  referralSource     String?
+  status             BookingStatus          @default(PENDING_CONFIRMATION)
+  basePrice          Decimal                @db.Decimal(12, 2)
+  addOnsTotal        Decimal                @default(0) @db.Decimal(12, 2)
+  totalAmount        Decimal                @db.Decimal(12, 2)
+  depositRequired    Decimal                @default(0) @db.Decimal(12, 2)
+  depositPaid        Decimal                @default(0) @db.Decimal(12, 2)
+  balanceRemaining   Decimal                @db.Decimal(12, 2)
+  currency           String                 @default("GMD")
+  internalNotes      String?
+  termsAcceptedAt    DateTime               @default(now())
+  cancellationReason String?
+  rescheduleDate     DateTime?
+  rescheduleTime     String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  addOns             BookingAddOn[]
+  payments           Payment[]
+  statusHistory      BookingStatusHistory[]
+  notifications      NotificationLog[]
+
+  @@index([bookingReference])
+  @@index([customerId])
+  @@index([sessionDate])
+  @@index([status])
+  @@map("bookings")
+}
+
+model BookingAddOn {
+  id        String   @id @default(cuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  addOnId   String?
+  name      String
+  price     Decimal  @db.Decimal(12, 2)
+  quantity  Int      @default(1)
+
+  @@index([bookingId])
+  @@map("booking_add_ons")
+}
+
+model Payment {
+  id                   String                    @id @default(cuid())
+  bookingId            String
+  booking              Booking                   @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  amount               Decimal                   @db.Decimal(12, 2)
+  currency             String                    @default("GMD")
+  paymentMethod        PaymentMethod             @default(CASH)
+  transactionReference String?
+  paymentDate          DateTime                  @default(now())
+  verificationStatus   PaymentVerificationStatus @default(PENDING_VERIFICATION)
+  recordedBy           String                    @default("System")
+  notes                String?
+  proofUrl             String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  @@index([bookingId])
+  @@map("payments")
+}
+
+model AvailabilityRule {
+  id                  String   @id @default(cuid())
+  dayOfWeek           Int      // 0 (Sunday) to 6 (Saturday)
+  startTime           String   @default("09:00")
+  endTime             String   @default("18:00")
+  slotDurationMinutes Int      @default(60)
+  bufferMinutes       Int      @default(30)
+  isActive            Boolean  @default(true)
+
+  @@unique([dayOfWeek])
+  @@map("availability_rules")
+}
+
+model AvailabilityException {
+  id        String   @id @default(cuid())
+  date      DateTime
+  startTime String?
+  endTime   String?
+  isBlocked Boolean  @default(true)
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@map("availability_exceptions")
+}
+
+model BlockedTime {
+  id        String   @id @default(cuid())
+  startDate DateTime
+  endDate   DateTime
+  allDay    Boolean  @default(true)
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([startDate, endDate])
+  @@map("blocked_times")
+}
+
+model Inquiry {
+  id                 String        @id @default(cuid())
+  fullName           String
+  email              String
+  phone              String
+  serviceInterested  String?
+  preferredDate      DateTime?
+  message            String
+  status             InquiryStatus @default(OPEN)
+  internalNotes      String?
+  convertedBookingId String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([status])
+  @@map("inquiries")
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  clientName  String
+  roleOrEvent String
+  quotation   String
+  rating      Int      @default(5)
+  photoUrl    String?
+  isApproved  Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@map("testimonials")
+}
+
+model FAQ {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  category    String   @default("General")
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("faqs")
+}
+
+model SiteSettings {
+  id                         String   @id @default("primary")
+  businessName               String   @default("ADU99 Photography")
+  tagline                    String   @default("Cinematic Visuals & Timeless Stories")
+  bio                        String   @default("Capturing profound, editorial, and timeless moments across The Gambia and beyond.")
+  addressOrArea              String   @default("Wellingara, Latrikunda Highway, The Gambia")
+  phone                      String   @default("+220 3135947 / +220 2135552")
+  whatsappNumber             String   @default("+2203135947")
+  email                      String   @default("contact@adu99photography.com")
+  instagramUrl               String   @default("https://www.instagram.com/adu_studio99/")
+  facebookUrl                String   @default("https://facebook.com")
+  twitterUrl                 String?
+  workingHours               String   @default("Mon - Sat: 9:00 AM - 6:00 PM")
+  bookingNoticeHours         Int      @default(24)
+  maxBookingDaysInAdvance    Int      @default(90)
+  depositPercentageDefault   Int      @default(50)
+  cancellationPolicyText     String   @default("Cancellations made 72 hours prior to the session are eligible for date rescheduling.")
+  termsText                  String   @default("All photography contracts and bookings are subject to mutual studio agreement.")
+  privacyText                String   @default("We respect your personal privacy and client photograph rights.")
+  bankTransferInstructions   String   @default("Ecobank Gambia Ltd / Account Name: ADU99 Photography / Account No: 00123456789")
+  wavePaymentInstructions    String   @default("Wave / QMoney Mobile Transfer to +220 3135947 (Ref: Your Booking Reference)")
+  updatedAt                  DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+model BookingStatusHistory {
+  id         String         @id @default(cuid())
+  bookingId  String
+  booking    Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  fromStatus BookingStatus?
+  toStatus   BookingStatus
+  changedBy  String         @default("System")
+  reason     String?
+  createdAt  DateTime       @default(now())
+
+  @@index([bookingId])
+  @@map("booking_status_history")
+}
+
+model NotificationLog {
+  id        String              @id @default(cuid())
+  bookingId String?
+  booking   Booking?            @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  recipient String
+  channel   NotificationChannel @default(EMAIL)
+  subject   String?
+  message   String
+  status    NotificationStatus  @default(SENT)
+  error     String?
+  createdAt DateTime            @default(now())
+
+  @@index([bookingId])
+  @@map("notification_logs")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  metadata   String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@map("audit_logs")
+}

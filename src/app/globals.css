@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0A0A0A;
+  --foreground: #F4F4F5;
+  --surface: #141416;
+  --surface-border: #27272A;
+  --accent-gold: #C5A880;
+  --accent-gold-hover: #DFCBB2;
+}
+
+@layer base {
+  * {
+    border-color: #27272A;
+  }
+  
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-editorial {
+    font-family: var(--font-serif), "Playfair Display", "Georgia", serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Custom Scrollbar for sleek gallery viewing */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0D0D0E;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272A;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3F3F46;
+}
+
+/* Editorial Glass & Subtle Highlights */
+.editorial-glass {
+  background: rgba(20, 20, 22, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.editorial-border {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.editorial-divider {
+  background: linear-gradient(90deg, transparent, rgba(197, 168, 128, 0.3), transparent);
+}
+
+/* Button & interactive animations */
+.editorial-btn {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.editorial-btn:hover {
+  transform: translateY(-1px);
+}
