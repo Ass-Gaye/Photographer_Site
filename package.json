@@ -4,12 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint src",
     "test": "jest",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "db:seed": "ts-node --project prisma/tsconfig.seed.json prisma/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
